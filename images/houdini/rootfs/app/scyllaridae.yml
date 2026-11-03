@@ -7,5 +7,7 @@ cmdByMimeType:
     args:
       - "%source-mime-ext"
       - "%destination-mime-ext"
+      - "--source-uri"
+      - "%source-uri"
       - "%args"
     allowInsecureArgs: ${SCYLLARIDAE_ALLOW_INSECURE_ARGS}

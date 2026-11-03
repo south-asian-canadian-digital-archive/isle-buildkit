@@ -11,10 +11,15 @@ parse_args() {
   shift 2 || true
 
   THUMBNAIL_SIZE=""
+  SOURCE_URI=""
   VIPS_ARGS=()
   while [ "$#" -gt 0 ]; do
     case "$1" in
       "") ;;
+      --source-uri)
+        shift
+        SOURCE_URI="${1:-}"
+        ;;
       -strip) ;;
       -thumbnail|-resize)
         shift
@@ -43,10 +48,40 @@ init_workspace() {
   WORKDIR=$(mktemp -d /tmp/houdini-XXXXXX)
   trap 'rm -rf "$WORKDIR"' EXIT
 
-  INPUT="$WORKDIR/input.$SOURCE_EXT"
   OUTPUT="$WORKDIR/output.$DEST_EXT"
 
+  if INPUT=$(local_source); then
+    echo "houdini: reading $INPUT in place" >&2
+    return 0
+  fi
+  INPUT="$WORKDIR/input.$SOURCE_EXT"
   cat > "$INPUT"
+}
+
+# Optional shortcut for co-located deployments. HOUDINI_LOCAL_SOURCES maps
+# source URL prefixes to read-only mounts, e.g.
+#   https://example.org/sites/default/files/=/mnt/public
+# (comma-separated for several). When the source URI matches and the file
+# is readable, vips opens it in place instead of copying the HTTP stream to
+# /tmp. Anything else (fedora://, private files, other hosts) falls back to
+# the stream, so the default behaviour is unchanged.
+local_source() {
+  [ -n "$SOURCE_URI" ] && [ -n "${HOUDINI_LOCAL_SOURCES:-}" ] || return 1
+  local uri="${SOURCE_URI%%[?#]*}" map prefix root rel path
+  IFS=',' read -r -a maps <<< "$HOUDINI_LOCAL_SOURCES"
+  for map in "${maps[@]}"; do
+    prefix="${map%%=*}"
+    root="${map#*=}"
+    [[ "$uri" == "$prefix"* ]] || continue
+    rel="${uri#"$prefix"}"
+    rel=$(printf '%b' "${rel//%/\\x}")   # URL-decode
+    case "/$rel/" in */../*) return 1 ;; esac
+    path="${root%/}/$rel"
+    [ -f "$path" ] && [ -r "$path" ] || return 1
+    echo "$path"
+    return 0
+  done
+  return 1
 }
 
 init_config() {
