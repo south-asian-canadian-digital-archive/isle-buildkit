@@ -13,9 +13,9 @@ ARG LIBJPEG_TURBO_URL="https://github.com/libjpeg-turbo/libjpeg-turbo/archive/re
 ARG LIBJPEG_TURBO_SHA256="a9e670ea30064f36d5a20481c1f33eedf80b7e76c6e3f75c7e7189b200a7a216"
 
 # renovate: datasource=github-releases depName=cli11 packageName=CLIUtils/CLI11
-ARG CLI11_VERSION=2.6.2
+ARG CLI11_VERSION=2.7.2
 ARG CLI11_URL="https://github.com/CLIUtils/CLI11/archive/refs/tags/v${CLI11_VERSION}.zip"
-ARG CLI11_SHA256="47c8d535bab0a315d3d751693ca45d23f8e360812349e48ba1a6f037e1a57af2"
+ARG CLI11_SHA256="a3ae013321de0bb9195913044a0dcda76cae69bdf34f0cd947998343246498e9"
 
 # renovate: datasource=github-releases depName=grok packageName=GrokImageCompression/grok
 ARG GROK_VERSION=14.3.0
@@ -49,7 +49,11 @@ RUN --mount=type=cache,id=cantaloupe-downloads-${TARGETARCH},sharing=locked,targ
         --dest "/opt/libjpeg-turbo" \
         --strip && \
     cd /opt/libjpeg-turbo && \
-    cmake -G"Unix Makefiles" -DWITH_JAVA=1 && \
+    cmake \
+        -G"Unix Makefiles" \
+        -DWITH_JAVA=1 \
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+        . && \
     make && \
     test -e "/opt/libjpeg-turbo/libturbojpeg.so.0.2.0" && \
     mkdir /opt/libjpeg-turbo/lib && \
@@ -58,10 +62,10 @@ RUN --mount=type=cache,id=cantaloupe-downloads-${TARGETARCH},sharing=locked,targ
     cleanup.sh
 
 ARG \
-    # renovate: datasource=repology depName=alpine_3_22/ffmpeg
-    FFMPEG_VERSION=6.1.2-r2 \
-    # renovate: datasource=repology depName=alpine_3_22/openjpeg-tools
-    OPENJPG_TOOLS_VERSION=2.5.3-r0
+  # renovate: datasource=repology depName=alpine_3_24/ffmpeg
+  FFMPEG_VERSION=8.1.3-r0 \
+  # renovate: datasource=repology depName=alpine_3_24/openjpeg-tools
+  OPENJPG_TOOLS_VERSION=2.5.4-r2
 
 # Opted for OpenJPG over Kakadu but that could be changed.
 # For reference see: https://cantaloupe-project.github.io/manual/5.0/processors.html
@@ -96,7 +100,9 @@ RUN apk add --no-cache \
         --strip \
     && mkdir /opt/cli11/build \
     && cd /opt/cli11/build \
-    && cmake .. \
+    && cmake \
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+        .. \
     && make \
     && make install \
     && cd /opt/cantaloupe \
@@ -107,7 +113,11 @@ RUN apk add --no-cache \
         --dest "/opt/grok" \
         --strip \
     && cd /opt/grok \
-    && cmake -DBUILD_TESTING=OFF  . \
+    && sed -i '/-DWITH_TURBOJPEG=0/a\                                -DCMAKE_POLICY_VERSION_MINIMUM=3.5' thirdparty/CMakeLists.txt \
+    && cmake \
+        -DBUILD_TESTING=OFF \
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+        . \
     && make install \
     && cd /opt/cantaloupe \
     && rm -rf /opt/grok \

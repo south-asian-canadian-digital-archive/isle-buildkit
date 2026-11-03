@@ -9,11 +9,11 @@ on:
       - ".github/workflows/dockerhub-description.yml"
 jobs:
   find-images:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     outputs:
       readmes: ${{ steps.set-matrix.outputs.readmes }}
     steps:
-      - uses: 'actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10' # v6
+      - uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7
 
       - name: Generate matrix
         id: set-matrix
@@ -31,7 +31,7 @@ jobs:
 
   update-descriptions:
     needs: find-images
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     strategy:
       matrix:
         name: ${{ fromJson(needs.find-images.outputs.readmes) }}
@@ -39,7 +39,7 @@ jobs:
       max-parallel: 3
       fail-fast: false
     steps:
-      - uses: 'actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10' # v6
+      - uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7
 
       - name: Determine README file
         id: readme

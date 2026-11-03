@@ -1,12 +1,26 @@
 # syntax=docker/dockerfile:1.20.0
+# Keep PHP independent of runtime ARGs and rootfs so their changes reuse this stage.
+FROM alpine AS php-build
+
+RUN apk add --no-cache alpine-sdk sudo && \
+    adduser -D -G abuild builder && \
+    echo 'builder ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/builder
+COPY --chown=builder:abuild build /home/builder/aports/php84
+USER builder
+WORKDIR /home/builder/aports/php84
+RUN abuild-keygen -ain && abuild-apk update && abuild -r && \
+    mkdir /home/builder/apks && \
+    find /home/builder/packages -name '*.apk' -exec cp {} /home/builder/apks/ \; && \
+    rm /home/builder/.abuild/*.rsa
+
 FROM base
 
 ARG TARGETARCH
 # renovate: datasource=github-releases depName=custom-composer packageName=composer/composer
-ARG COMPOSER_VERSION=2.10.1
+ARG COMPOSER_VERSION=2.10.3
 ARG COMPOSER_FILE=composer.phar
 ARG COMPOSER_URL=https://getcomposer.org/download/${COMPOSER_VERSION}/${COMPOSER_FILE}
-ARG COMPOSER_SHA256="345b9c6a98da5c30dcbd4b0d99fc8710bf0ae98a3898eea18f7b2ad9dec93f06"
+ARG COMPOSER_SHA256="7a2d379d5b8ffdaa028580ef26494c36d2feef4b178d3dd1473a4dbc5e17c8d6"
 
 WORKDIR /var/www
 
@@ -22,46 +36,53 @@ RUN --mount=type=cache,id=download-downloads-${TARGETARCH},sharing=locked,target
     cleanup.sh
 
 ARG \
-    # renovate: datasource=repology depName=alpine_3_22/icu-data-full
-    ICU_VERSION=76.1-r1 \
-    # renovate: datasource=repology depName=alpine_3_22/nginx
-    NGINX_VERSION=1.28.3-r3 \
-    # renovate: datasource=repology depName=alpine_3_22/php83
-    PHP_VERSION=8.3.29-r0
+  # renovate: datasource=repology depName=alpine_3_24/icu-data-full
+  ICU_VERSION=78.1-r0 \
+  # renovate: datasource=repology depName=alpine_3_24/nginx
+  NGINX_VERSION=1.30.6-r0 \
+  # PHP is built from the vendored aport; ci/update-php.sh updates this pin.
+  PHP_VERSION=8.4.27-r0
 
 # Platform specific does require arch specific identifier.
-RUN --mount=type=cache,id=nginx-apk-${TARGETARCH},sharing=locked,target=/var/cache/apk \
+RUN --mount=type=bind,from=php-build,source=/home/builder/apks,target=/packages \
+    --mount=type=bind,from=php-build,source=/etc/apk/keys,target=/etc/apk/keys \
+    --mount=type=cache,id=nginx-apk-${TARGETARCH},sharing=locked,target=/var/cache/apk \
     apk add \
         icu-data-full=="${ICU_VERSION}" \
         nginx=="${NGINX_VERSION}" \
-        php83=="${PHP_VERSION}" \
-        php83-ctype=="${PHP_VERSION}" \
-        php83-curl=="${PHP_VERSION}" \
-        php83-dom=="${PHP_VERSION}" \
-        php83-fileinfo=="${PHP_VERSION}" \
-        php83-fpm=="${PHP_VERSION}" \
-        php83-gd=="${PHP_VERSION}" \
-        php83-iconv=="${PHP_VERSION}" \
-        php83-intl=="${PHP_VERSION}" \
-        php83-ldap=="${PHP_VERSION}" \
-        php83-mbstring=="${PHP_VERSION}" \
-        php83-mysqli=="${PHP_VERSION}" \
-        php83-opcache=="${PHP_VERSION}" \
-        php83-openssl=="${PHP_VERSION}" \
-        php83-pdo=="${PHP_VERSION}" \
-        php83-pdo_mysql=="${PHP_VERSION}" \
-        php83-pdo_pgsql=="${PHP_VERSION}" \
-        php83-phar=="${PHP_VERSION}" \
-        php83-session=="${PHP_VERSION}" \
-        php83-simplexml=="${PHP_VERSION}" \
-        php83-sockets=="${PHP_VERSION}" \
-        php83-tokenizer=="${PHP_VERSION}" \
-        php83-xml=="${PHP_VERSION}" \
-        php83-xmlreader=="${PHP_VERSION}" \
-        php83-xmlwriter=="${PHP_VERSION}" \
-        php83-xsl=="${PHP_VERSION}" \
-        php83-zip=="${PHP_VERSION}" \
+        /packages/php84-${PHP_VERSION}.apk \
+        /packages/php84-common-${PHP_VERSION}.apk \
+        /packages/php84-mysqlnd-${PHP_VERSION}.apk \
+        /packages/php84-ctype-${PHP_VERSION}.apk \
+        /packages/php84-curl-${PHP_VERSION}.apk \
+        /packages/php84-dom-${PHP_VERSION}.apk \
+        /packages/php84-fileinfo-${PHP_VERSION}.apk \
+        /packages/php84-fpm-${PHP_VERSION}.apk \
+        /packages/php84-gd-${PHP_VERSION}.apk \
+        /packages/php84-iconv-${PHP_VERSION}.apk \
+        /packages/php84-intl-${PHP_VERSION}.apk \
+        /packages/php84-ldap-${PHP_VERSION}.apk \
+        /packages/php84-mbstring-${PHP_VERSION}.apk \
+        /packages/php84-mysqli-${PHP_VERSION}.apk \
+        /packages/php84-opcache-${PHP_VERSION}.apk \
+        /packages/php84-openssl-${PHP_VERSION}.apk \
+        /packages/php84-pdo-${PHP_VERSION}.apk \
+        /packages/php84-pdo_mysql-${PHP_VERSION}.apk \
+        /packages/php84-pdo_pgsql-${PHP_VERSION}.apk \
+        /packages/php84-phar-${PHP_VERSION}.apk \
+        /packages/php84-session-${PHP_VERSION}.apk \
+        /packages/php84-simplexml-${PHP_VERSION}.apk \
+        /packages/php84-sodium-${PHP_VERSION}.apk \
+        /packages/php84-sockets-${PHP_VERSION}.apk \
+        /packages/php84-tokenizer-${PHP_VERSION}.apk \
+        /packages/php84-xml-${PHP_VERSION}.apk \
+        /packages/php84-xmlreader-${PHP_VERSION}.apk \
+        /packages/php84-xmlwriter-${PHP_VERSION}.apk \
+        /packages/php84-xsl-${PHP_VERSION}.apk \
+        /packages/php84-zip-${PHP_VERSION}.apk \
     && \
+    php84 -r 'exit(PHP_VERSION === $argv[1] ? 0 : 1);' "${PHP_VERSION%-r*}" && \
+    ln -sf /usr/bin/php84 /usr/bin/php && \
     addgroup nginx jwt && \
     cleanup.sh
 

@@ -3,10 +3,10 @@ FROM base AS build
 
 ARG TARGETARCH
 ARG \
-    # renovate: datasource=repology depName=alpine_3_22/build-base
-    BUILD_BASE_VERSION=0.5-r3 \
-    # renovate: datasource=repology depName=alpine_3_22/cmake
-    CMAKE_VERSION=3.31.7-r1
+  # renovate: datasource=repology depName=alpine_3_24/build-base
+  BUILD_BASE_VERSION=0.5-r4 \
+  # renovate: datasource=repology depName=alpine_3_24/cmake
+  CMAKE_VERSION=4.2.3-r0
 
 RUN --mount=type=cache,id=whisper-build-apk-${TARGETARCH},sharing=locked,target=/var/cache/apk \
     apk add \
@@ -14,9 +14,9 @@ RUN --mount=type=cache,id=whisper-build-apk-${TARGETARCH},sharing=locked,target=
         cmake=="${CMAKE_VERSION}"
 
 # renovate: datasource=github-releases depName=whisper.cpp packageName=ggml-org/whisper.cpp
-ARG WHISPER_VERSION=1.8.6
+ARG WHISPER_VERSION=1.9.5
 ARG WHISPER_URL="https://github.com/ggml-org/whisper.cpp/archive/refs/tags/v${WHISPER_VERSION}.tar.gz"
-ARG WHISPER_SHA256="f8e632016ceae556f3132a16c7f704be1e7715595041f474fa81a2b64c1abf7c"
+ARG WHISPER_SHA256="ff1a9053feb509ff9d7729703355541ae9690073a6b1c40eb692c962e0dc1720"
 # whisper model to include in this image
 # see https://github.com/ggml-org/whisper.cpp#more-audio-samples for options
 ARG WHISPER_MODEL=medium.en
@@ -30,7 +30,11 @@ RUN download.sh \
 
 WORKDIR /build/whisper.cpp
 
-RUN make "${WHISPER_MODEL}"
+# Avoid -march=native: CI builders may expose AVX-512 instructions that are
+# unavailable on the hosts running the published image.
+RUN make \
+      CMAKE_ARGS="-DGGML_NATIVE=OFF -DGGML_BMI2=OFF" \
+      "${WHISPER_MODEL}"
 
 FROM scyllaridae
 
@@ -39,10 +43,10 @@ EXPOSE 8080
 WORKDIR /app
 
 ARG \
-    # renovate: datasource=repology depName=alpine_3_22/ffmpeg
-    FFMPEG_VERSION=6.1.2-r2 \
-    # renovate: datasource=repology depName=alpine_3_22/sdl2
-    SDL2_VERSION=2.32.8-r0
+  # renovate: datasource=repology depName=alpine_3_24/ffmpeg
+  FFMPEG_VERSION=8.1.3-r0 \
+  # renovate: datasource=repology depName=alpine_3_24/sdl2
+  SDL2_VERSION=2.32.10-r0
 
 RUN --mount=type=cache,id=whisper-runtime-apk-${TARGETARCH},sharing=locked,target=/var/cache/apk \
     apk add \
@@ -51,8 +55,8 @@ RUN --mount=type=cache,id=whisper-runtime-apk-${TARGETARCH},sharing=locked,targe
     && \
     cleanup.sh
 
-COPY --from=build /build/whisper.cpp/build/src/libwhisper.so* /usr/local/lib/
-COPY --from=build /build/whisper.cpp/build/ggml/src/libggml* /usr/local/lib/
+COPY --from=build /build/whisper.cpp/build/bin/libwhisper.so* /usr/local/lib/
+COPY --from=build /build/whisper.cpp/build/bin/libggml*.so* /usr/local/lib/
 COPY --from=build /build/whisper.cpp/build/bin/whisper-cli /app/
 COPY --from=build /build/whisper.cpp/models /app/models
 

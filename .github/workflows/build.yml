@@ -22,7 +22,7 @@ on:
         default: false
     outputs:
       digest:
-        description: "Digest argument for Gradle"
+        description: "Image digest reference"
         value: ${{ jobs.merge.outputs.digest }}
       context:
         description: "Context to use in dependent images"
@@ -42,7 +42,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
-        uses: "actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10" # v6
+        uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" # v7
 
       # allow running this job on old tags
       - name: Strip APK pinning
@@ -51,14 +51,14 @@ jobs:
 
       - name: Set up Docker Buildx
         id: buildx
-        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
         with:
           driver-opts: |
             image=moby/buildkit:v0.11.1
             network=host
 
       - name: Login to Docker Hub
-        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
           username: ${{ secrets.REGISTRY_USER }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
@@ -78,9 +78,10 @@ jobs:
             "TARGET=${{ inputs.image }}-$PLATFORM" \
             "REPOSITORY=${{ inputs.repository }}" \
             "TAGS=${FIRST_TAG}" \
-            "CONTEXTS=${{ inputs.contexts }}"
+            "CONTEXTS=${{ inputs.contexts }}" \
+            "BRANCH=${{ github.ref_name }}"
   merge:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     outputs:
       digest: ${{ steps.build-push-manifest.outputs.digest }}
       context: ${{ steps.build-push-manifest.outputs.context }}
@@ -88,13 +89,13 @@ jobs:
       - build
     steps:
       - name: Login to Docker Hub
-        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
           username: ${{ secrets.REGISTRY_USER }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
 
       - name: ghcr Login
-        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -102,7 +103,7 @@ jobs:
 
       - name: Set up Docker Buildx
         id: buildx
-        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
       - name: Create and push manifest list
         id: build-push-manifest

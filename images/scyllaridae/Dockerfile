@@ -5,22 +5,22 @@ WORKDIR /build
 ARG TARGETARCH
 
 # renovate: datasource=github-releases depName=scyllaridae packageName=islandora/scyllaridae
-ARG SCYLLARIDAE_VERSION=5.2.10
+ARG SCYLLARIDAE_VERSION=5.3.6
 ARG SCYLLARIDAE_URL="https://github.com/islandora/scyllaridae/archive/refs/tags/${SCYLLARIDAE_VERSION}.tar.gz"
-ARG SCYLLARIDAE_SHA256="c68075673b604a7ffeeaffad5a50afa146e61e7047559a3d4d1c020975d0e484"
+ARG SCYLLARIDAE_SHA256="d0c4f21fd34ee7f12d4f8a05bec757d7bc9586f65f8f604e80c23f4a0ac29e77"
 RUN download.sh \
       --url "${SCYLLARIDAE_URL}" \
       --sha256 "${SCYLLARIDAE_SHA256}" \
       --dest .
 
-# renovate: datasource=github-tags depName=golang packageName=golang/go versioning=go-mod-directive
-ARG GO_VERSION=go1.25.3
+# renovate: datasource=golang-version depName=go versioning=semver
+ARG GO_VERSION=go1.27.0
 ARG \
   GO_BASE_URL="https://go.dev/dl/${GO_VERSION}" \
   GO_AMD64=linux-amd64.tar.gz	\
-  GO_AMD64_SHA256="0335f314b6e7bfe08c3d0cfaa7c19db961b7b99fb20be62b0a826c992ad14e0f" \
+  GO_AMD64_SHA256="675c26c449cbb18fc24b74650de1eabbae6e16f64326fd85a283fb3b58280685" \
   GO_ARM64=linux-arm64.tar.gz \
-  GO_ARM64_SHA256="1d42ebc84999b5e2069f5e31b67d6fc5d67308adad3e178d5a2ee2c9ff2001f5"
+  GO_ARM64_SHA256="51798d2c42d0e1c6ed7fd9f48728b4193abac9e8aad6dbac2fe96a81f5909bda"
 
 RUN if [ "${TARGETARCH}" = "amd64" ]; \
     then \
@@ -43,7 +43,7 @@ FROM base
 COPY --from=builder /build/scyllaridae /app/scyllaridae
 
 ARG \
-  # renovate: datasource=repology depName=alpine_3_22/mailcap
+  # renovate: datasource=repology depName=alpine_3_24/mailcap
   MAILCAP_VERSION=2.1.54-r0
 
 RUN --mount=type=cache,id=scyllaridae-apk-${TARGETARCH},sharing=locked,target=/var/cache/apk \

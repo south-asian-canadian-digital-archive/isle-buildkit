@@ -11,10 +11,10 @@ permissions:
 jobs:
   release:
     if: github.event.pull_request.merged == true && !contains(github.event.pull_request.title, '[skip-release]')
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Checkout
-        uses: 'actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10' # v6
+        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7
         with:
           fetch-depth: 0
 
@@ -38,6 +38,6 @@ jobs:
           git tag $TAG
           git push origin $TAG
           gh release create $TAG --title "$TAG" --generate-notes
-          gh workflow run push.yml -f tag=$TAG --ref $TAG
+          gh workflow run push.yml -f tag=$TAG -f strip-apk-pinning=false --ref $TAG
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
