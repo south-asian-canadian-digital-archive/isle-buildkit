@@ -174,34 +174,21 @@ write_copy_or_thumbnail() {
   write_copy
 }
 
-# JPEG tiles only hold 8-bit sRGB or greyscale: libvips writes CMYK tiles
-# as-is and drops alpha, and 16-bit masters bloat the service file. Convert
-# anything else to 8-bit sRGB (or grey) flattened on white. Approach from
+# JPEG tiles only hold 8-bit sRGB or greyscale. tiffsave itself scales
+# 16-bit down to 8-bit, and its --background flattens alpha (onto white,
+# see write_tiff), both while streaming. What it does NOT do is convert
+# CMYK/LAB: it writes CMYK JPEG tiles as-is. Only those get a converted
+# copy first, so most masters need no extra temp disk. Problem spotted in
 # t4k's libvips houdini in the isle-buildkit PR 569 thread.
 normalize_for_jpeg() {
-  local source="$1" interp format bands target out
+  local source="$1" interp
   interp=$(vipsheader -f interpretation "$source")
-  format=$(vipsheader -f format "$source")
-  bands=$(vipsheader -f bands "$source")
-
-  case "${interp,,} ${format,,} $bands" in
-    *_srgb*_uchar*" 3" | *_b_w*_uchar*" 1") echo "$source"; return 0 ;;
+  case "${interp,,}" in
+    *_srgb* | *_rgb16* | *_b_w* | *_grey16*) echo "$source"; return 0 ;;
   esac
-  echo "houdini: normalising $interp $format bands=$bands to 8-bit" >&2
-
-  target=srgb
-  case "$interp" in *_B_W* | *_GREY16*) target=b-w ;; esac
-
-  # colourspace also drops 16-bit to 8-bit for srgb / b-w targets.
-  out="$WORKDIR/norm.v"
-  vips colourspace "$source" "$WORKDIR/cs.v" "$target"
-  case "$(vipsheader -f bands "$WORKDIR/cs.v")" in
-    2 | 4) vips flatten "$WORKDIR/cs.v" "$WORKDIR/flat.v" --background "255 255 255"
-           vips cast "$WORKDIR/flat.v" "$out" uchar ;;
-    *)     vips cast "$WORKDIR/cs.v" "$out" uchar ;;
-  esac
-  rm -f "$WORKDIR/cs.v" "$WORKDIR/flat.v"
-  echo "$out"
+  echo "houdini: converting $interp to sRGB" >&2
+  vips colourspace "$source" "$WORKDIR/srgb.v" srgb
+  echo "$WORKDIR/srgb.v"
 }
 
 write_tiff() {
@@ -218,6 +205,9 @@ write_tiff() {
     quality=$(tiff_quality)
     compression_args=(--compression jpeg --Q "$quality")
   fi
+  # Flatten any alpha onto white instead of libvips' default black. The value
+  # is in the source's own range and clips, so 65535 is white for 8 and 16-bit.
+  compression_args+=(--background 65535)
 
   bigtiff=$(bigtiff_flag "$source")
 
