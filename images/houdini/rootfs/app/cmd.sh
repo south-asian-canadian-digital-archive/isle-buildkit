@@ -174,12 +174,43 @@ write_copy_or_thumbnail() {
   write_copy
 }
 
+# JPEG tiles only hold 8-bit sRGB or greyscale: libvips writes CMYK tiles
+# as-is and drops alpha, and 16-bit masters bloat the service file. Convert
+# anything else to 8-bit sRGB (or grey) flattened on white. Approach from
+# t4k's libvips houdini in the isle-buildkit PR 569 thread.
+normalize_for_jpeg() {
+  local source="$1" interp format bands target out
+  interp=$(vipsheader -f interpretation "$source")
+  format=$(vipsheader -f format "$source")
+  bands=$(vipsheader -f bands "$source")
+
+  case "${interp,,} ${format,,} $bands" in
+    *_srgb*_uchar*" 3" | *_b_w*_uchar*" 1") echo "$source"; return 0 ;;
+  esac
+  echo "houdini: normalising $interp $format bands=$bands to 8-bit" >&2
+
+  target=srgb
+  case "$interp" in *_B_W* | *_GREY16*) target=b-w ;; esac
+
+  # colourspace also drops 16-bit to 8-bit for srgb / b-w targets.
+  out="$WORKDIR/norm.v"
+  vips colourspace "$source" "$WORKDIR/cs.v" "$target"
+  case "$(vipsheader -f bands "$WORKDIR/cs.v")" in
+    2 | 4) vips flatten "$WORKDIR/cs.v" "$WORKDIR/flat.v" --background "255 255 255"
+           vips cast "$WORKDIR/flat.v" "$out" uchar ;;
+    *)     vips cast "$WORKDIR/cs.v" "$out" uchar ;;
+  esac
+  rm -f "$WORKDIR/cs.v" "$WORKDIR/flat.v"
+  echo "$out"
+}
+
 write_tiff() {
   local source quality bigtiff compression_args
   source="$LOAD_SPEC"
   if thumbnail_requested; then
     source=$(thumbnail_source)
   fi
+  source=$(normalize_for_jpeg "$source")
 
   if [ "$SOURCE_EXT" = "jp2" ]; then
     compression_args=(--compression lzw)
