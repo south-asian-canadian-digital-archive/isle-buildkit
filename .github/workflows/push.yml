@@ -1,6 +1,8 @@
 name: Build and Push Docker Images
 on:
   push:
+    # SACDA fork: houdini-vips is built by sacda-houdini.yml instead.
+    branches-ignore: [houdini-vips]
     paths-ignore:
       - "renovate.json"
       - "**/*.md"
