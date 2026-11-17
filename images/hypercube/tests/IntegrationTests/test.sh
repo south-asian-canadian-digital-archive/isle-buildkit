@@ -29,8 +29,7 @@ else
     exit 1
 fi
 
-# Tests 1b/1c: formats leptonica cannot read itself, normalised by libvips.
-# Sent as the request body: nginx serves .jp2 as application/octet-stream.
+# Test 2: Pyramid TIFF and 16-bit JP2 OCR from POST data
 for fixture in test-pyramid.tif:image/tiff test-16bit.jp2:image/jp2; do
     mime="${fixture#*:}"
     fixture="${fixture%%:*}"
@@ -50,7 +49,7 @@ for fixture in test-pyramid.tif:image/tiff test-16bit.jp2:image/jp2; do
     fi
 done
 
-# Test 2: PDF OCR from POST data
+# Test 3: PDF OCR from POST data
 echo "Testing PDF OCR..."
 
 curl -s -o ocr.txt \
