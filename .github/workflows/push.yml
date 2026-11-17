@@ -1,6 +1,8 @@
 name: Build and Push Docker Images
 on:
   push:
+    # SACDA fork: hypercube-vips is built by sacda-hypercube.yml instead.
+    branches-ignore: [hypercube-vips]
     paths-ignore:
       - "renovate.json"
       - "**/*.md"
